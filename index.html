@@ -1,0 +1,206 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>東京中華・天味府 | オンライン注文</title>
+    <!-- 引入高质感日文字体 -->
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;500;700&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --primary-color: #E60012; /* PayPay红与中华红的结合 */
+            --bg-color: #FAFAFA;
+            --text-color: #333333;
+        }
+        * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Noto Sans JP', sans-serif; }
+        body { background-color: var(--bg-color); color: var(--text-color); padding-bottom: 80px; }
+        
+        /* 头部店铺信息 */
+        .header { background: #white; padding: 24px 16px; text-align: center; border-bottom: 1px solid #EEEEEE; background: white; }
+        .header h1 { font-size: 20px; font-weight: 700; margin-bottom: 6px; }
+        .header p { font-size: 12px; color: #666; }
+        .paypay-badge { display: inline-block; background: #FFEDF0; color: #E60012; padding: 2px 8px; border-radius: 4px; font-size: 11px; font-weight: bold; margin-top: 8px; }
+
+        /* 商品列表 */
+        .menu-container { padding: 16px; }
+        .menu-item { display: flex; background: white; padding: 12px; border-radius: 12px; margin-bottom: 12px; box-shadow: 0 2px 4px rgba(0,0,0,0.02); }
+        .food-img { width: 85px; height: 85px; border-radius: 8px; object-fit: cover; background: #eee; margin-right: 12px; }
+        .food-info { flex: 1; display: flex; flex-direction: column; justify-content: space-between; }
+        .food-name { font-size: 15px; font-weight: 700; }
+        .food-desc { font-size: 11px; color: #888; margin-top: 2px; }
+        .food-bottom { display: flex; justify-content: space-between; align-items: center; margin-top: 8px; }
+        .food-price { font-size: 16px; font-weight: 700; color: #333; }
+        
+        /* 加减数量控件 */
+        .stepper { display: flex; align-items: center; }
+        .btn-calc { width: 28px; height: 28px; border-radius: 50%; border: 1px solid #DDD; background: white; font-size: 18px; font-weight: bold; cursor: pointer; display: flex; align-items: center; justify-content: center; }
+        .btn-plus { background: var(--primary-color); color: white; border: none; }
+        .count { width: 30px; text-align: center; font-size: 14px; font-weight: 500; }
+
+        /* 底部固定结算栏 */
+        .cart-bar { position: fixed; bottom: 0; left: 0; right: 0; height: 72px; background: white; display: flex; justify-content: space-between; align-items: center; padding: 0 16px; box-shadow: 0 -4px 10px rgba(0,0,0,0.05); border-top: 1px solid #EEE; }
+        .total-label { font-size: 12px; color: #666; }
+        .total-price { font-size: 22px; font-weight: 700; color: var(--text-color); }
+        .total-price span { font-size: 14px; margin-left: 2px; }
+        .btn-submit { background: var(--primary-color); color: white; border: none; padding: 12px 28px; border-radius: 24px; font-size: 15px; font-weight: 700; cursor: pointer; }
+        
+        /* 弹窗样式 */
+        .modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.6); align-items: center; justify-content: center; padding: 20px; z-index: 1000; }
+        .modal-content { background: white; padding: 24px; border-radius: 16px; width: 100%; max-width: 340px; text-align: center; }
+        .modal-title { font-size: 18px; font-weight: 700; margin-bottom: 12px; color: #333; }
+        .modal-text { font-size: 14px; color: #555; line-height: 1.6; margin-bottom: 20px; text-align: left; }
+        .btn-close { background: #333; color: white; border: none; width: 100%; padding: 12px; border-radius: 8px; font-size: 14px; font-weight: 700; cursor: pointer; }
+    </style>
+</head>
+<body>
+
+    <!-- 1. 店铺头部 -->
+    <div class="header">
+        <h1>東京中華・天味府 🥟</h1>
+        <p>本場の味をお届けします / 桌号：08番テーブル</p>
+        <div class="paypay-badge">PayPay利用可能店舗</div>
+    </div>
+
+    <!-- 2. 商品菜单 -->
+    <div class="menu-container" id="menu">
+        <!-- 菜品由数据动态渲染 -->
+    </div>
+
+    <!-- 3. 底部固定结算栏 -->
+    <div class="cart-bar">
+        <div>
+            <div class="total-label">合計金額</div>
+            <div class="total-price">¥<span id="total-amount">0</span></div>
+        </div>
+        <button class="btn-submit" onclick="submitOrder()">注文する</button>
+    </div>
+
+    <!-- 4. 结算提示弹窗 -->
+    <div class="modal" id="orderModal">
+        <div class="modal-content">
+            <div class="modal-title">🎉 ご注文完了</div>
+            <div class="modal-text">
+                お買い上げありがとうございます！<br><br>
+                <strong>合計金額：¥<span id="modal-total">0</span> (税込)</strong><br><br>
+                【お支払い方法】<br>
+                卓上、またはレジにある<strong>PayPayのQRコード</strong>をスキャンし、上記の金額を入力して決済してください。支払いが完了しましたら、スタッフに画面をご提示ください。
+            </div>
+            <button class="btn-close" onclick="closeModal()">確認しました</button>
+        </div>
+    </div>
+
+  <script>
+    // 1. 你的菜品数据
+    const foods = [
+        { id: 1, name: "本格四川麻婆豆腐", desc: "お肉たっぷり、しびれる辛さと旨み", price: 980, img: "https://images.unsplash.com/photo-1541832676-9b763b0239ab?w=200" },
+        { id: 2, name: "手作り水餃子 (10個)", desc: "もちもちの皮からあふれる肉汁", price: 650, img: "https://images.unsplash.com/photo-1563245372-f21724e3856d?w=200" },
+        { id: 3, name: "黒酢酢豚", desc: "香りの良い鎮江香酢を使用した絶品", price: 1200, img: "https://images.unsplash.com/photo-1603496987141-fc9304026959?w=200" }
+    ];
+
+    let cart = {};
+
+    // 自动动态识别桌号（自动读取网址后面的 ?table=01 这种参数）
+    const urlParams = new URLSearchParams(window.location.search);
+    const tableNumber = urlParams.get('table') || '未指定（お持ち帰りなど）';
+
+    // 渲染菜单
+    function renderMenu() {
+        const menuEl = document.getElementById('menu');
+        menuEl.innerHTML = foods.map(food => `
+            <div class="menu-item">
+                <img class="food-img" src="${food.img}" alt="${food.name}">
+                <div class="food-info">
+                    <div>
+                        <div class="food-name">${food.name}</div>
+                        <div class="food-desc">${food.desc}</div>
+                    </div>
+                    <div class="food-bottom">
+                        <div class="food-price">¥${food.price}</div>
+                        <div class="stepper">
+                            ${cart[food.id] > 0 ? `
+                                <button class="btn-calc" onclick="updateQty(${food.id}, -1)">-</button>
+                                <div class="count">${cart[food.id]}</div>
+                            ` : ''}
+                            <button class="btn-calc btn-plus" onclick="updateQty(${food.id}, 1)">+</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        `).join('');
+    }
+
+    function updateQty(id, change) {
+        if (!cart[id]) cart[id] = 0;
+        cart[id] += change;
+        if (cart[id] <= 0) delete cart[id];
+        renderMenu();
+        calculateTotal();
+    }
+
+    let currentTotal = 0;
+    function calculateTotal() {
+        currentTotal = foods.reduce((sum, food) => sum + (cart[food.id] || 0) * food.price, 0);
+        document.getElementById('total-amount').innerText = currentTotal.toLocaleString();
+    }
+
+    // 2. 核心改动：使用 Telegram Bot 发送订单
+    function submitOrder() {
+        if (currentTotal === 0) {
+            alert("商品を選択してください。");
+            return;
+        }
+
+        // 🚨 填入你刚才申请到的两把钥匙
+        const botToken = "这里填入BotFather给你的超长Token"; 
+        const chatId = "这里填入userinfobot给你的数字ID"; 
+
+        // 组装精美的手机通知排版
+        let orderDetails = `🔔【新規注文が入りました】\n`;
+        orderDetails += `----------------------\n`;
+        orderDetails += `📍 席番号：${tableNumber} 番テーブル\n\n`;
+        
+        foods.forEach(food => {
+            if (cart[food.id] > 0) {
+                orderDetails += `・${food.name} × ${cart[food.id]}\n`;
+            }
+        });
+        
+        orderDetails += `----------------------\n`;
+        orderDetails += `💰 合計金額：¥${currentTotal.toLocaleString()} 円\n`;
+        orderDetails += `💳 決済方法：PayPay`;
+        orderDetails += `💳 決済方法：现金`;
+
+        // Telegram 官方原生支持网页直接跨域发送，连代理网关都不需要，比 LINE 还要稳定安全！
+        const telegramUrl = `https://api.telegram.org/bot${botToken}/sendMessage`;
+
+        fetch(telegramUrl, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+                chat_id: chatId,
+                text: orderDetails
+            })
+        })
+        .then(response => {
+            // 不管手机通知是否100%成功，立刻让日本客人的手机弹窗，不能耽误客人付款
+            document.getElementById('modal-total').innerText = currentTotal.toLocaleString();
+            document.getElementById('orderModal').style.display = 'flex';
+        })
+        .catch(error => {
+            console.error("Telegram Error:", error);
+            document.getElementById('modal-total').innerText = currentTotal.toLocaleString();
+            document.getElementById('orderModal').style.display = 'flex';
+        });
+    }
+
+    function closeModal() {
+        document.getElementById('orderModal').style.display = 'none';
+        cart = {};
+        renderMenu();
+        calculateTotal();
+    }
+
+    renderMenu();
+</script>
+</body>
+</html>
